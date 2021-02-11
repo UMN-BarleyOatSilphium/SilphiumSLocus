@@ -14,9 +14,9 @@ data <- read.csv(paste(dir,"CrossData.csv", sep = ""), header = T)
 rules_all <- read.csv(paste(dir,"all_rules.csv", sep = ""))
 
 #Number of runs per rule
-num <- 4
+num <- 4000
 #Number of cores to use for parallel processing
-cor <- 2 
+cor <- 24 
 
 #Penalty for a mismatch between predicted and observed results
 cost <- .75
@@ -24,7 +24,7 @@ cost <- .75
 Threshold <- 0.2
 
 #Each hill-climbing chain will end if it goes through this many chnages without improving the score
-End <- 10
+End <- 1000
 ##Anchor individual (number is the place of the selected individual in a list of all unique individuals) . 
 ##Select one individual in the population to be set to the same S-locus genotype across all runs. 
 ##We recommend selecting an individual used in a relatively high number of crosses
@@ -46,9 +46,9 @@ colnames(rules) <- c("MomGeno", "DadGeno", "Odds")
 ####recode seed set percentage to binary. 
 data2 <- data
 for( i in 1:length(data2$Plant)){
-  if(data2[i,5] > Threshold){
-    data2[i,8] <- 1
-  }else( data2[i,8] <- 0)
+  if(data2[i,3] > Threshold){
+    data2[i,4] <- 1
+  }else( data2[i,4] <- 0)
 }
 
 w <- max(rules[,3])
@@ -61,16 +61,16 @@ for(i in 1:length(rules[,1])){
 }
 
 ###Set up parent list
+scorelist <- vector(length = num)
+rulelist <- matrix(nrow = length(parents[,1]), ncol= (num+1))
+rulelist[,1] <- parents[,1]
+
 parents <- as.vector(unique(data$Plant))
 dad <- as.vector(unique(data$FatherPlant))
 parents <- as.data.frame(unique(c(parents, dad)))                 
 colnames(parents) <- "Plant"
 ###assign genotypes at random, then assign an "anchor" individual a particular genotype (arbitrarily chosen as AC)
 
-scorelist <- vector(length = num)
-rulelist <- matrix(nrow = length(parents[,1]), ncol= (num+1))
-rulelist[,1] <- parents[,1]
-############
 
 registerDoParallel(cor)
 rule_list <- foreach(i=1:num, .combine = 'cbind') %dopar% {
@@ -94,7 +94,7 @@ rule_list <- foreach(i=1:num, .combine = 'cbind') %dopar% {
   
   
   data3 <- dplyr::left_join(data3, rules, by=c("MomGeno", "DadGeno"))
-  data3$scores <- abs(data3[,8]-data3[,11])
+  data3$scores <- abs(data3[,4]-data3[,7])
   score <- sum(data3$scores)
   
   
@@ -106,7 +106,7 @@ rule_list <- foreach(i=1:num, .combine = 'cbind') %dopar% {
   
   #############
   ##Randomly change one individual to a different genotype. If that reduces the score, change it and proceed. If not, trya  different change.
-  ##If the cycle repeats 1000 times at a score without decreasing, end
+  ##If the cycle repeats "End" number of times without the score decreasing, end
   repeat{
     parents2 <- parents
     q <- sample(set, 1)
@@ -116,7 +116,7 @@ rule_list <- foreach(i=1:num, .combine = 'cbind') %dopar% {
     data4 <- dplyr::left_join(data2, parents2, by = "Plant")
     data4 <- dplyr::left_join(data4, dads2, by="FatherPlant")
     data4 <- dplyr::left_join(data4, rules, by=c("MomGeno", "DadGeno"))
-    data4$scores <- abs(data4[,8]-data4[,11])
+    data4$scores <- abs(data4[,4]-data4[,7])
     score2 <- sum(data4$scores)
     
     if(score2 < score){
@@ -155,7 +155,7 @@ datascore <- dplyr::left_join(datascore, dadscore, by="FatherPlant")
 
 
 datascore <- dplyr::left_join(datascore, rules, by=c("MomGeno", "DadGeno"))
-datascore$scores <- abs(datascore[,8]-datascore[,11])
+datascore$scores <- abs(datascore[,4]-datascore[,7])
 sum(datascore$scores)}
 
 
