@@ -1,3 +1,7 @@
+###Hill climbing algorithim to fit S-locus genotypes to plants crossed using a connected small diallel design
+###Developed by John Hill Price
+
+
 library(dplyr)
 library(foreach)
 library(parallel)
